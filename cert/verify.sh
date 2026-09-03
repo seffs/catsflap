@@ -34,7 +34,7 @@ docker run --rm -v ssca_verify_data:/home/step --entrypoint sh smallstep/step-ca
 echo "== run step-ca =="
 docker run -d --name ssca_verify_ca --network "$net" --network-alias step-ca \
 	-v ssca_verify_data:/home/step smallstep/step-ca >/dev/null
-for i in $(seq 1 15); do sleep 1; docker logs ssca_verify_ca 2>&1 | grep -q "Serving HTTPS" && break; done
+for i in $(seq 1 15); do sleep 1; docker logs ssca_verify_ca 2>&1 | grep "Serving HTTPS" >/dev/null && break; done
 
 echo "== run an sshd that trusts ONLY the CA (no authorized_keys) =="
 docker run -d --name ssca_verify_sshd --network "$net" -v ssca_verify_data:/ca:ro debian:stable-slim sh -c '
@@ -43,7 +43,7 @@ docker run -d --name ssca_verify_sshd --network "$net" -v ssca_verify_data:/ca:r
   useradd -m -s /bin/bash demo && mkdir -p /run/sshd
   printf "TrustedUserCAKeys /etc/ssh/user_ca.pub\nPasswordAuthentication no\nAuthorizedKeysFile none\n" >> /etc/ssh/sshd_config
   exec /usr/sbin/sshd -D -e' >/dev/null
-for i in $(seq 1 15); do sleep 1; docker logs ssca_verify_sshd 2>&1 | grep -q "Server listening" && break; done
+for i in $(seq 1 15); do sleep 1; docker logs ssca_verify_sshd 2>&1 | grep "Server listening" >/dev/null && break; done
 
 echo "== mint a 10-minute SSH cert for principal 'demo' =="
 docker run --rm --network "$net" -v ssca_verify_data:/ca:ro -v ssca_verify_out:/out \

@@ -29,7 +29,7 @@ docker run --rm -v ussel_data:/home/step --entrypoint sh smallstep/step-ca -c "
     --provisioner admin --password-file /home/step/secrets/password \
     --provisioner-password-file /home/step/secrets/password >/dev/null 2>&1"
 docker run -d --name ussel_ca --network "$net" --network-alias step-ca -v ussel_data:/home/step smallstep/step-ca >/dev/null
-for i in $(seq 1 15); do sleep 1; docker logs ussel_ca 2>&1 | grep -q "Serving HTTPS" && break; done
+for i in $(seq 1 15); do sleep 1; docker logs ussel_ca 2>&1 | grep "Serving HTTPS" >/dev/null && break; done
 fp="$(docker run --rm -v ussel_data:/ca:ro --entrypoint step smallstep/step-ca certificate fingerprint /ca/certs/root_ca.crt)"
 
 echo "== strict sshd with accounts alice + bob (default principal matching; no carol) =="
@@ -56,8 +56,8 @@ docker run -d --name ussel_bastion --network "$net" --user 0:0 \
 	  apk add --no-cache openssh-client ca-certificates >/dev/null
 	  export SHELL=/usr/local/bin/bastion
 	  exec /opt/tailcat/tailcat serve no-auth-ssh' >/dev/null
-for i in $(seq 1 40); do sleep 1; docker logs ussel_sshd 2>&1 | grep -q "Server listening" && break; done
-for i in $(seq 1 20); do sleep 1; docker logs ussel_bastion 2>&1 | grep -q "new address" && break; done
+for i in $(seq 1 40); do sleep 1; docker logs ussel_sshd 2>&1 | grep "Server listening" >/dev/null && break; done
+for i in $(seq 1 20); do sleep 1; docker logs ussel_bastion 2>&1 | grep "new address" >/dev/null && break; done
 addr="$(docker logs ussel_bastion 2>&1 | grep -oE 'tc[A-Za-z0-9_-]+' | head -1)"
 
 ask() { # $1 = requested user

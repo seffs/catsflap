@@ -82,7 +82,7 @@ docker run --rm -v ssca_qs_data:/home/step --entrypoint sh smallstep/step-ca -c 
     --provisioner-password-file /home/step/secrets/password >/dev/null 2>&1"
 docker run -d --name ssca_qs_ca --network "$net" --network-alias step-ca \
 	-v ssca_qs_data:/home/step smallstep/step-ca >/dev/null
-for i in $(seq 1 15); do sleep 1; docker logs ssca_qs_ca 2>&1 | grep -q "Serving HTTPS" && break; done
+for i in $(seq 1 15); do sleep 1; docker logs ssca_qs_ca 2>&1 | grep "Serving HTTPS" >/dev/null && break; done
 fp="$(docker run --rm -v ssca_qs_data:/ca:ro --entrypoint step smallstep/step-ca \
 	certificate fingerprint /ca/certs/root_ca.crt)"
 
@@ -93,7 +93,7 @@ if [ "$mode" = oidc ]; then
 		--client-id "$OIDC_CLIENT_ID" --client-secret "$OIDC_CLIENT_SECRET" \
 		--configuration-endpoint "${OIDC_ISSUER%/}/.well-known/openid-configuration"
 	docker restart ssca_qs_ca >/dev/null
-	for i in $(seq 1 15); do sleep 1; docker logs ssca_qs_ca 2>&1 | grep -q "Serving HTTPS" && break; done
+	for i in $(seq 1 15); do sleep 1; docker logs ssca_qs_ca 2>&1 | grep "Serving HTTPS" >/dev/null && break; done
 fi
 
 echo "== 2/5 demo target sshd (trusts the CA; any authenticated identity -> user 'demo') =="
@@ -137,8 +137,8 @@ docker run -d --name ssca_qs_bastion --network "$net" --user 0:0 \
 	  exec /opt/tailcat/tailcat serve no-auth-ssh' >/dev/null
 
 echo "   waiting for the demo sshd and the bastion to be ready..."
-for i in $(seq 1 40); do sleep 1; docker logs ssca_qs_sshd 2>&1 | grep -q "Server listening" && break; done
-for i in $(seq 1 20); do sleep 1; docker logs ssca_qs_bastion 2>&1 | grep -q "new address" && break; done
+for i in $(seq 1 40); do sleep 1; docker logs ssca_qs_sshd 2>&1 | grep "Server listening" >/dev/null && break; done
+for i in $(seq 1 20); do sleep 1; docker logs ssca_qs_bastion 2>&1 | grep "new address" >/dev/null && break; done
 addr="$(addr_of)"
 
 echo

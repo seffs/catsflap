@@ -18,6 +18,23 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
+# Wait (up to 60s) for a container to log a substring. Robust under `set -o
+# pipefail`: `docker logs ... | grep -q` reports failure even on a match, because
+# grep -q closes the pipe the instant it matches and SIGPIPEs `docker logs`, whose
+# 141 then propagates via pipefail. So capture the logs and substring-match — no
+# pipe, no SIGPIPE.
+wait_log() { # <container> <substring> <label>
+	n=0
+	while [ "$n" -lt 60 ]; do
+		case "$(docker logs "$1" 2>&1)" in *"$2"*) return 0 ;; esac
+		n=$((n + 1))
+		sleep 1
+	done
+	echo "  $3 failed to start:"
+	docker logs "$1" 2>&1 | tail -8 | sed 's/^/    /'
+	return 1
+}
+
 # --ipv6 matters on IPv6-only hosts: a user-defined network is IPv4-only by
 # default, which has no upstream there (falls back to the default bridge's IPv6
 # behaviour otherwise). Harmless on dual-stack/IPv4 hosts.
@@ -36,7 +53,7 @@ docker run --rm -v cfpk_data:/home/step --entrypoint sh smallstep/step-ca -c '
 echo "== run step-ca =="
 docker run -d --name cfpk_ca --network "$net" --network-alias step-ca \
 	-v cfpk_data:/home/step smallstep/step-ca >/dev/null
-for i in $(seq 1 15); do sleep 1; docker logs cfpk_ca 2>&1 | grep -q "Serving HTTPS" && break; done
+wait_log cfpk_ca "Serving HTTPS" "step-ca" || exit 1
 
 echo "== run target sshd that trusts ONLY the CA (user 'demo') =="
 docker run -d --name cfpk_target --network "$net" --network-alias target -v cfpk_data:/ca:ro alpine sh -c '
@@ -47,8 +64,7 @@ docker run -d --name cfpk_target --network "$net" --network-alias target -v cfpk
   ssh-keygen -A >/dev/null && mkdir -p /var/empty
   printf "TrustedUserCAKeys /etc/ssh/user_ca.pub\nPasswordAuthentication no\nAuthorizedKeysFile none\n" >> /etc/ssh/sshd_config
   exec /usr/sbin/sshd -D -e' >/dev/null
-for i in $(seq 1 15); do sleep 1; docker logs cfpk_target 2>&1 | grep -q "Server listening" && break; done
-docker logs cfpk_target 2>&1 | grep -q "Server listening" || { echo "  target sshd failed to start:"; docker logs cfpk_target 2>&1 | tail -5 | sed 's/^/    /'; exit 1; }
+wait_log cfpk_target "Server listening" "target sshd" || exit 1
 
 echo "== make two client keys; map only the first to principal 'demo' =="
 docker run --rm -v cfpk_keys:/keys alpine sh -c '
@@ -83,8 +99,7 @@ docker run -d --name cfpk_bastion --network "$net" --network-alias bastion --use
   ssh-keygen -A >/dev/null && mkdir -p /var/empty
   printf "Port 22\nPubkeyAuthentication yes\nPasswordAuthentication no\nAuthorizedKeysFile none\nAuthorizedKeysCommand /usr/local/bin/authkeys %%u %%t %%k\nAuthorizedKeysCommandUser root\nAllowUsers catsflap\nPermitTTY yes\n" > /etc/ssh/sshd_config
   exec /usr/sbin/sshd -D -e' >/dev/null
-for i in $(seq 1 15); do sleep 1; docker logs cfpk_bastion 2>&1 | grep -q "Server listening" && break; done
-docker logs cfpk_bastion 2>&1 | grep -q "Server listening" || { echo "  bastion sshd failed to start:"; docker logs cfpk_bastion 2>&1 | tail -8 | sed 's/^/    /'; exit 1; }
+wait_log cfpk_bastion "Server listening" "bastion sshd" || exit 1
 
 # Drive the client from inside the bastion: it already has an ssh client and the
 # keys mounted, so no throwaway container needs to install one at runtime.
