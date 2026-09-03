@@ -18,7 +18,10 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
-docker network create "$net" >/dev/null
+# --ipv6 matters on IPv6-only hosts: a user-defined network is IPv4-only by
+# default, which has no upstream there (falls back to the default bridge's IPv6
+# behaviour otherwise). Harmless on dual-stack/IPv4 hosts.
+docker network create --ipv6 "$net" >/dev/null 2>&1 || docker network create "$net" >/dev/null
 docker volume create cfpk_data >/dev/null
 docker volume create cfpk_keys >/dev/null
 

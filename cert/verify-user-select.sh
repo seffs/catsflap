@@ -16,7 +16,9 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 here="$(cd "$(dirname "$0")" && pwd)"
-docker network create "$net" >/dev/null
+# --ipv6 so this works on IPv6-only hosts (NAT64), where an IPv4-only
+# user-defined network has no upstream. Falls back on non-IPv6 daemons.
+docker network create --ipv6 "$net" >/dev/null 2>&1 || docker network create "$net" >/dev/null
 docker volume create ussel_data >/dev/null
 docker volume create ussel_bin >/dev/null
 

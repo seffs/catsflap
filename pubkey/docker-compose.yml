@@ -15,6 +15,12 @@ volumes:
   tailcat-bin: {} # seeded with the tailcat binary from the official image
   step-data: {}
 
+# On IPv6-only hosts (e.g. NAT64), the compose network must be IPv6-enabled or
+# the bastion has no upstream to apk-add the ssh server. Harmless elsewhere.
+networks:
+  default:
+    enable_ipv6: true
+
 services:
   step-ca:
     image: smallstep/step-ca
