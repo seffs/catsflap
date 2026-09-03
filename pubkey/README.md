@@ -36,7 +36,7 @@ sequenceDiagram
    tailcat node key).
 2. The bastion's **real `sshd`** authenticates the client's **SSH key**. An
    `AuthorizedKeysCommand` ([`authkeys.sh`](./authkeys.sh)) looks the key up in
-   [`keymap`](./keymap) and maps it to a principal — the mapping, not the login
+   [`keymap`](./keymap.example) and maps it to a principal — the mapping, not the login
    name, is the identity.
 3. A forced command ([`mint-and-proxy.sh`](./mint-and-proxy.sh)) mints a
    short-lived cert for that principal (step-ca's JWK `admin` provisioner; the CA
@@ -88,7 +88,7 @@ each principal you'll issue.
 
 1. `cp .env.example .env` and set `ALLOW_KEY`, `CA_PASSWORD`, and `TARGET_HOST`
    (see [`.env.example`](./.env.example)).
-2. Add your users' public keys to [`keymap`](./keymap), one per line —
+2. `cp keymap.example keymap` and add your users' public keys, one per line —
    `<principal> <keytype> <key-base64>`.
 3. `docker compose up -d` — step-ca auto-initializes; the bastion brings up its
    sshd front door and serves it over tailcat.

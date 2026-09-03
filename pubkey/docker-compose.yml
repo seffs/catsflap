@@ -70,5 +70,5 @@ services:
       - ./bastion-entrypoint.sh:/usr/local/bin/bastion-entrypoint:ro
       - ./authkeys.sh:/usr/local/bin/authkeys.in:ro
       - ./mint-and-proxy.sh:/usr/local/bin/mint-proxy.in:ro
-      - ./keymap:/etc/catsflap-in/keymap:ro # your key -> principal list
+      - ./keymap:/etc/catsflap-in/keymap:ro # your key -> principal list (cp keymap.example keymap)
     entrypoint: ["sh", "/usr/local/bin/bastion-entrypoint"]

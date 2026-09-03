@@ -52,10 +52,11 @@ cp .env.example .env
 # TARGET_HOST=host.docker.internal   # the target's real sshd (default: the Docker host)
 ```
 
-**c. Map your SSH key to a principal** in [`keymap`](./keymap) — one line per
-person, `<principal> <keytype> <key-base64>`:
+**c. Map your SSH key to a principal.** Create your `keymap` from the tracked
+template, then add one line per person, `<principal> <keytype> <key-base64>`:
 
 ```sh
+cp keymap.example keymap
 # take the type + key fields (drop the trailing comment) from your public key:
 cut -d' ' -f1-2 ~/.ssh/id_ed25519.pub | sed 's/^/alice /' >> keymap
 # -> alice ssh-ed25519 AAAAC3Nza...
@@ -95,7 +96,7 @@ tailcat ssh catsflap@<addr> uptime     # run a command
 
 ## Adding and removing people
 
-Edit [`keymap`](./keymap) and `docker compose up -d` — the bastion recreates and
+Edit [`keymap`](./keymap.example) and `docker compose up -d` — the bastion recreates and
 re-reads it. Removing a line revokes that key immediately; the person's SSH key
 never touched the host, and any cert they held expires within minutes.
 

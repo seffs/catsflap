@@ -1,1 +1,6 @@
-/.env
+# Local config & secrets — copy the tracked *.example files to create these.
+.env
+keymap
+
+# JetBrains project files
+.idea/
