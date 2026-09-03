@@ -1,0 +1,74 @@
+# tailcat + step-ca + bastion, from official images with nothing to build.
+# step-ca auto-initializes on first `up` (SSH CA enabled), and the bastion
+# derives the CA fingerprint itself from the shared CA volume — so all you set
+# in .env is ALLOW_KEY, CA_PASSWORD, and TARGET. The bastion reaches the host's
+# real sshd over tailcat and mints a short-lived SSH cert per connection (OIDC
+# or JWK). No privileged container, no host-namespace escape, no standing key.
+#
+# Order of operations (see QUICKSTART.md):
+#   1. cp .env.example .env  and fill it in
+#   2. docker compose up -d          # step-ca inits, bastion comes up serving
+#   3. trust the CA on the host       # uses the CA that step 2 just created
+#   4. (OIDC only) add the provisioner; then connect with `tailcat ssh <addr>`
+#
+# Update tailcat: `docker compose down` then `up` re-seeds. (Keep the volumes to
+# keep your CA; `down -v` wipes the CA and you'd re-trust it on the host.)
+
+volumes:
+  tailcat-bin: {} # seeded with the tailcat binary from the official image
+  step-data: {}
+
+services:
+  step-ca:
+    image: smallstep/step-ca
+    restart: unless-stopped
+    # Auto-initialize on first run with the SSH CA enabled and a password
+    # provisioner named "admin". Published to loopback so the host-networked
+    # bastion reaches it at https://localhost:9000.
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      DOCKER_STEPCA_INIT_NAME: "Tailcat CA"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,step-ca"
+      DOCKER_STEPCA_INIT_PROVISIONER_NAME: "admin"
+      DOCKER_STEPCA_INIT_SSH: "true"
+      DOCKER_STEPCA_INIT_PASSWORD: "${CA_PASSWORD:?set CA_PASSWORD in .env}"
+    volumes:
+      - step-data:/home/step
+
+  # Seed the tailcat binary into the volume from the official (distroless) image.
+  init-tailcat:
+    image: ghcr.io/tailscale/tailcat:latest
+    restart: "no"
+    volumes:
+      - tailcat-bin:/usr/local/bin
+    command: ["version"]
+
+  # tailcat front door + OIDC/JWK bastion. Unprivileged. --network host lets
+  # TARGET=me@localhost reach the host's own sshd. Config comes from .env; the
+  # entrypoint materializes it (and derives the CA fingerprint from step-data).
+  bastion:
+    image: smallstep/step-cli
+    restart: unless-stopped
+    user: "0:0" # root: to apk-add the ssh client (no privileges, no host escape)
+    network_mode: host
+    depends_on:
+      init-tailcat:
+        condition: service_completed_successfully
+      step-ca:
+        condition: service_started
+    environment:
+      ALLOW_KEY: "${ALLOW_KEY:?set ALLOW_KEY in .env (client runs tailcat genkey --client --key=client-default)}"
+      TARGET: "${TARGET:?set TARGET in .env, for example alice@localhost}"
+      CA_URL: "${CA_URL:-https://localhost:9000}"
+      DEFAULT_METHOD: "${DEFAULT_METHOD:-jwk}"
+      OIDC_PROVISIONER: "${OIDC_PROVISIONER:-oidc}"
+      JWK_PROVISIONER: "${JWK_PROVISIONER:-admin}"
+      PROVISIONER_PASSWORD: "${PROVISIONER_PASSWORD:-}" # optional: non-interactive JWK
+      CERT_PRINCIPALS: "${CERT_PRINCIPALS:-}"
+    volumes:
+      - tailcat-bin:/opt/tailcat:ro # the seeded tailcat binary
+      - step-data:/ca:ro # read the CA root cert to derive the fingerprint
+      - ./bastion-wrapper.sh:/usr/local/bin/bastion:ro
+      - ./bastion-entrypoint.sh:/usr/local/bin/bastion-entrypoint:ro
+    entrypoint: ["sh", "/usr/local/bin/bastion-entrypoint"]

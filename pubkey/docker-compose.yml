@@ -1,0 +1,66 @@
+# catsflap — pubkey stack. tailcat + step-ca + a bastion whose front door is a
+# real sshd doing SSH-key auth. Each authorized key maps to a principal; the
+# bastion mints a short-lived cert for it and proxies to the target host's own
+# sshd (which trusts the CA). No shared password or IdP for clients — a client's
+# SSH key is its identity. The CA password stays server-side so the bastion can
+# mint. Nothing to build; official images only.
+#
+#   1. cp .env.example .env  and fill it in
+#   2. add your users' public keys to  keymap  (key -> principal)
+#   3. docker compose up -d
+#   4. trust the CA on the host (see README / sshd-ca.conf)
+#   5. connect:  tailcat ssh catsflap@<addr>
+
+volumes:
+  tailcat-bin: {} # seeded with the tailcat binary from the official image
+  step-data: {}
+
+services:
+  step-ca:
+    image: smallstep/step-ca
+    restart: unless-stopped
+    environment:
+      DOCKER_STEPCA_INIT_NAME: "catsflap CA"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "localhost,step-ca"
+      DOCKER_STEPCA_INIT_PROVISIONER_NAME: "admin"
+      DOCKER_STEPCA_INIT_SSH: "true"
+      DOCKER_STEPCA_INIT_PASSWORD: "${CA_PASSWORD:?set CA_PASSWORD in .env}"
+    volumes:
+      - step-data:/home/step
+
+  # Seed the tailcat binary into the volume from the official (distroless) image.
+  init-tailcat:
+    image: ghcr.io/tailscale/tailcat:latest
+    restart: "no"
+    volumes:
+      - tailcat-bin:/usr/local/bin
+    command: ["version"]
+
+  # Real-sshd front door + tailcat transport. Unprivileged; runs on the bridge
+  # network (its own sshd would collide with the host's on --network host).
+  bastion:
+    image: smallstep/step-cli
+    restart: unless-stopped
+    user: "0:0" # root: apk-add sshd, install root-owned AuthorizedKeysCommand
+    depends_on:
+      init-tailcat:
+        condition: service_completed_successfully
+      step-ca:
+        condition: service_started
+    environment:
+      ALLOW_KEY: "${ALLOW_KEY:?set ALLOW_KEY in .env (tailcat genkey --client --key=client-default)}"
+      CA_PASSWORD: "${CA_PASSWORD:?set CA_PASSWORD in .env}" # server-side only; mints certs
+      CA_URL: "${CA_URL:-https://step-ca:9000}"
+      JWK_PROVISIONER: "${JWK_PROVISIONER:-admin}"
+      TARGET_HOST: "${TARGET_HOST:-host.docker.internal}" # the target's real sshd
+      SSHD_PORT: "${SSHD_PORT:-22}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # so TARGET_HOST can be the Docker host
+    volumes:
+      - tailcat-bin:/opt/tailcat:ro # the seeded tailcat binary
+      - step-data:/ca:ro # read the CA root cert to derive the fingerprint
+      - ./bastion-entrypoint.sh:/usr/local/bin/bastion-entrypoint:ro
+      - ./authkeys.sh:/usr/local/bin/authkeys.in:ro
+      - ./mint-and-proxy.sh:/usr/local/bin/mint-proxy.in:ro
+      - ./keymap:/etc/catsflap-in/keymap:ro # your key -> principal list
+    entrypoint: ["sh", "/usr/local/bin/bastion-entrypoint"]

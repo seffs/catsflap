@@ -1,0 +1,16 @@
+# catsflap pubkey bastion — key -> principal map.
+#
+# One line per authorized client key:
+#   <principal>  <keytype>  <key-base64>   [comment]
+#
+# - principal  the account the client becomes on the target host (and the cert's
+#              principal). A login account of that name must exist on the host.
+# - keytype    e.g. ssh-ed25519, ecdsa-sha2-nistp256, ssh-rsa
+# - key-base64 the middle field of a public key. From `cat ~/.ssh/id_ed25519.pub`
+#              (the "AAAA..." part), or paste the whole pubkey minus the comment.
+#
+# Blank lines and '#' comments are ignored. Edit and `docker compose up -d` to
+# apply (the bastion recreates and re-reads this file).
+#
+# alice  ssh-ed25519  AAAAC3NzaC1lZDI1NTE5AAAAIExampleExampleExampleExampleExamplexxx  alice@laptop
+# bob    ssh-ed25519  AAAAC3NzaC1lZDI1NTE5AAAAIAnotherAnotherAnotherAnotherAnotheryyy  bob@desktop
