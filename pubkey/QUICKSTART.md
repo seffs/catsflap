@@ -67,7 +67,7 @@ door and serves it over tailcat:
 
 ```sh
 docker compose up -d
-docker compose logs bastion | grep 'new address'   # -> tailcat ssh catsflap@tcXXXXXXXX
+docker compose logs bastion | grep 'listening'   # -> tailcat ssh catsflap@tcXXXXXXXX
 ```
 
 **e. Trust the CA on the host, once** (after `up` — the CA exists only once it's
