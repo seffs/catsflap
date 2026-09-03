@@ -36,13 +36,16 @@ docker run -d --name cfpk_ca --network "$net" --network-alias step-ca \
 for i in $(seq 1 15); do sleep 1; docker logs cfpk_ca 2>&1 | grep -q "Serving HTTPS" && break; done
 
 echo "== run target sshd that trusts ONLY the CA (user 'demo') =="
-docker run -d --name cfpk_target --network "$net" --network-alias target -v cfpk_data:/ca:ro debian:stable-slim sh -c '
-  apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq openssh-server >/dev/null 2>&1
+docker run -d --name cfpk_target --network "$net" --network-alias target -v cfpk_data:/ca:ro alpine sh -c '
+  apk add --no-cache openssh >/dev/null
   cp /ca/certs/ssh_user_ca_key.pub /etc/ssh/user_ca.pub
-  useradd -m -s /bin/bash demo && mkdir -p /run/sshd
+  adduser -D -s /bin/sh demo
+  sed -i "/^demo:/ s/^demo:[^:]*:/demo:*:/" /etc/shadow   # unlock (OpenSSH 10 refuses locked accts, even for certs)
+  ssh-keygen -A >/dev/null && mkdir -p /var/empty
   printf "TrustedUserCAKeys /etc/ssh/user_ca.pub\nPasswordAuthentication no\nAuthorizedKeysFile none\n" >> /etc/ssh/sshd_config
   exec /usr/sbin/sshd -D -e' >/dev/null
 for i in $(seq 1 15); do sleep 1; docker logs cfpk_target 2>&1 | grep -q "Server listening" && break; done
+docker logs cfpk_target 2>&1 | grep -q "Server listening" || { echo "  target sshd failed to start:"; docker logs cfpk_target 2>&1 | tail -5 | sed 's/^/    /'; exit 1; }
 
 echo "== make two client keys; map only the first to principal 'demo' =="
 docker run --rm -v cfpk_keys:/keys alpine sh -c '
@@ -78,11 +81,12 @@ docker run -d --name cfpk_bastion --network "$net" --network-alias bastion --use
   printf "Port 22\nPubkeyAuthentication yes\nPasswordAuthentication no\nAuthorizedKeysFile none\nAuthorizedKeysCommand /usr/local/bin/authkeys %%u %%t %%k\nAuthorizedKeysCommandUser root\nAllowUsers catsflap\nPermitTTY yes\n" > /etc/ssh/sshd_config
   exec /usr/sbin/sshd -D -e' >/dev/null
 for i in $(seq 1 15); do sleep 1; docker logs cfpk_bastion 2>&1 | grep -q "Server listening" && break; done
+docker logs cfpk_bastion 2>&1 | grep -q "Server listening" || { echo "  bastion sshd failed to start:"; docker logs cfpk_bastion 2>&1 | tail -8 | sed 's/^/    /'; exit 1; }
 
-sshc() { docker run --rm --network "$net" -v cfpk_keys:/keys:ro debian:stable-slim sh -c "
-  apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq openssh-client >/dev/null 2>&1
-  ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /keys/$1 catsflap@bastion \
-    'echo OK whoami=\$(whoami)' 2>&1"; }
+# Drive the client from inside the bastion: it already has an ssh client and the
+# keys mounted, so no throwaway container needs to install one at runtime.
+sshc() { docker exec cfpk_bastion ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+	-i "/keys/$1" catsflap@localhost "echo OK whoami=\$(whoami)" 2>&1; }
 
 echo "== listed key (client) should land as demo =="
 out=$(sshc client || true); echo "    ${out##*$'\n'}"
