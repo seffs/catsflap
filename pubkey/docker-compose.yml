@@ -14,6 +14,7 @@
 volumes:
   tailcat-bin: {} # seeded with the tailcat binary from the official image
   step-data: {}
+  tailcat-key: {} # persisted server key -> stable tailcat address across restarts
 
 # On IPv6-only hosts (e.g. NAT64), the compose network must be IPv6-enabled or
 # the bastion has no upstream to apk-add the ssh server. Harmless elsewhere.
@@ -64,6 +65,7 @@ services:
       - "host.docker.internal:host-gateway" # so TARGET_HOST can be the Docker host
     volumes:
       - tailcat-bin:/opt/tailcat:ro # the seeded tailcat binary
+      - tailcat-key:/var/lib/tailcat # persisted server key (stable address)
       - step-data:/ca:ro # read the CA root cert to derive the fingerprint
       - ./bastion-entrypoint.sh:/usr/local/bin/bastion-entrypoint:ro
       - ./authkeys.sh:/usr/local/bin/authkeys.in:ro

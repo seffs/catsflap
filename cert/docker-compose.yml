@@ -17,6 +17,7 @@
 volumes:
   tailcat-bin: {} # seeded with the tailcat binary from the official image
   step-data: {}
+  tailcat-key: {} # persisted server key -> stable tailcat address across restarts
 
 # IPv6-enable the compose network so it works on IPv6-only hosts (NAT64).
 # Harmless on dual-stack/IPv4. (The bastion itself is on --network host.)
@@ -74,6 +75,7 @@ services:
       CERT_PRINCIPALS: "${CERT_PRINCIPALS:-}"
     volumes:
       - tailcat-bin:/opt/tailcat:ro # the seeded tailcat binary
+      - tailcat-key:/var/lib/tailcat # persisted server key (stable address)
       - step-data:/ca:ro # read the CA root cert to derive the fingerprint
       - ./bastion-wrapper.sh:/usr/local/bin/bastion:ro
       - ./bastion-entrypoint.sh:/usr/local/bin/bastion-entrypoint:ro

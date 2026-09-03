@@ -23,4 +23,10 @@ if [ -n "$PROVISIONER_PASSWORD" ]; then printf %s "$PROVISIONER_PASSWORD" >/etc/
 if [ -n "$CERT_PRINCIPALS" ]; then printf %s "$CERT_PRINCIPALS" >/etc/bastion/cert-principals; fi
 
 export SHELL=/usr/local/bin/bastion
-exec /opt/tailcat/tailcat serve --allow="$ALLOW_KEY" no-auth-ssh
+
+# Persist the tailcat server key so the address stays stable across restarts,
+# baking in a fixed DERP region (the region is part of the address, so without
+# --fixed-region it can drift even with the same key). `down -v` wipes it.
+keyfile=/var/lib/tailcat/server.private.json
+[ -f "$keyfile" ] || /opt/tailcat/tailcat genkey --key="$keyfile" --fixed-region >/dev/null
+exec /opt/tailcat/tailcat serve --key="$keyfile" --allow="$ALLOW_KEY" no-auth-ssh
