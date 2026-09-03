@@ -93,11 +93,14 @@ each principal you'll issue.
 3. `docker compose up -d` — step-ca auto-initializes; the bastion brings up its
    sshd front door and serves it over tailcat.
 4. Trust the CA on the host (above).
-5. Connect with your own SSH key; you land on the target as the mapped principal:
+5. Connect — `--key=` is your tailcat client key (the `--allow` gate); your SSH
+   key is the identity. You land on the target as the mapped principal:
    ```sh
-   tailcat ssh catsflap@<addr>            # interactive
-   tailcat ssh catsflap@<addr> uptime     # run a command
+   tailcat --key=<name> ssh catsflap@<addr>          # interactive
+   tailcat --key=<name> ssh catsflap@<addr> uptime   # run a command
    ```
+   (Drop `--key=` if your client key is named `client-default`. To pin the SSH
+   key/user in `~/.ssh/config` and shorten this, see [QUICKSTART](./QUICKSTART.md).)
 
 > [!NOTE]
 > Clients log in to the bastion as the fixed account `catsflap` — identity comes

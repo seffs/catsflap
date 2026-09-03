@@ -70,7 +70,7 @@ docker compose up -d
 docker compose logs bastion | grep 'listening'   # -> tailcat ssh catsflap@tcXXXXXXXX
 ```
 
-**e. Trust the CA on the host, once** (after `up` — the CA exists only once it's
+**e. Trust the CA on the host, once** (after first `up` **OR** a redeploy from scratch: `docker compose down -v && docker compose up -d`— the CA exists only once it's
 created). Pull step-ca's SSH user CA key out of the running stack and install it:
 
 ```sh
@@ -82,17 +82,38 @@ sudo cp sshd-ca.conf /etc/ssh/sshd_config.d/ && sudo systemctl reload ssh
 Make sure a login account exists for each principal you mapped (e.g. `alice`).
 That's the only host-side change — no per-user keys, ever.
 
-**f. Connect** with your own SSH key. You land on the target as the principal your
-key maps to:
+**f. Connect** from the machine in step a. Two keys are in play: your **tailcat
+client key** (the `--allow` gate, `--key=`) selects the tunnel, and your **SSH
+key** proves who you are to the bastion. You land on the target as the principal
+your SSH key maps to.
 
 ```sh
-tailcat ssh catsflap@<addr>            # interactive
-tailcat ssh catsflap@<addr> uptime     # run a command
+tailcat ssh catsflap@<addr>                   # if your client key is named 'client-default' (auto-loaded)
+tailcat --key=<name> ssh catsflap@<addr>      # if you named it anything else in step a
+tailcat --key=<name> ssh catsflap@<addr> uptime   # run a command
 ```
 
 > [!NOTE]
 > Clients always log in to the bastion as the fixed account `catsflap` — the
-> identity comes from your key, not this name — so connect as `catsflap@<addr>`.
+> identity comes from your SSH key, not this name — so connect as `catsflap@<addr>`.
+
+**Optional — make it one word.** `tailcat ssh` just hands off to your system
+`ssh`, which chooses the SSH identity its usual way (agent → `~/.ssh/config` →
+default `~/.ssh/id_*`). The bastion is reached at a stable host name
+`tailcat-<hash>`, so a `~/.ssh/config` block can pin the key *and* the user —
+letting you drop the `catsflap@`:
+
+```
+Host tailcat-*
+    User catsflap
+    IdentityFile ~/.ssh/id_ed25519    # the key that's in keymap
+    IdentitiesOnly yes                # offer only that key, not every agent key
+```
+
+```sh
+tailcat --key=<name> ssh <addr>       # right user + right key, no catsflap@
+alias catsflap-vps='tailcat --key=<name> ssh <addr>'   # ...and now it's one word
+```
 
 ## Adding and removing people
 
