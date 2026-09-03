@@ -1,0 +1,30 @@
+catsflap
+Copyright 2026 seffs
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this project except in compliance with the License. See the LICENSE file.
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+catsflap orchestrates, but does not include or redistribute, the following. Each
+is fetched and run from its own official distribution under its own license:
+
+- tailcat — https://github.com/tailscale/tailcat
+  BSD 3-Clause License. Copyright (c) Tailscale Inc & contributors.
+
+- step-ca (smallstep/certificates) — https://github.com/smallstep/certificates
+  Apache License 2.0. Copyright (c) Smallstep Labs, Inc.
+
+- OpenSSH, Docker base images (Alpine, Debian, smallstep/step-cli,
+  smallstep/step-ca), and other tools invoked at runtime, each under their
+  respective licenses.
+
+--------------------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------------------
+
+"Tailscale" and "Tailcat" are trademarks of Tailscale Inc. catsflap is an
+independent project and is not affiliated with, endorsed by, or sponsored by
+Tailscale Inc. References to tailcat describe interoperability only.

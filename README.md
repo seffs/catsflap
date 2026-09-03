@@ -77,3 +77,33 @@ certificates → real sshd. Reach for something simpler if:
 The trade-off is intentional: catsflap favors simple, Docker-native ownership over
 centralized management — own the whole stack yourself, and keep the target's SSH
 boringly standard.
+
+## Bring your own DERP (for scale)
+
+catsflap's transport is tailcat, which by default relays through **Tailscale's
+public DERP servers**. 
+
+Run your own DERP (Tailscale's [`derper`](https://pkg.go.dev/tailscale.com/cmd/derper)
+is open source) and point catsflap at it by baking your relay into the bastion's
+server key — in the entrypoint, generate the key with `--region` instead of
+`--fixed-region`:
+
+```sh
+tailcat genkey --key="$keyfile" --region=derp.example.com
+```
+
+The DERP host is then embedded in the tailcat address, so clients reach it with
+no extra config. (Alternatively, set `TAILCAT_DERPMAP_URL` to a custom DERP map
+for the bastion and clients.) None of this is needed for personal use — the
+default relays work out of the box.
+
+## License & attribution
+
+catsflap is licensed under the [Apache License 2.0](./LICENSE). It orchestrates —
+but does not include or redistribute — [tailcat](https://github.com/tailscale/tailcat)
+(BSD 3-Clause, Tailscale Inc.) and [step-ca](https://github.com/smallstep/certificates)
+(Apache 2.0, Smallstep); see [NOTICE](./NOTICE).
+
+"Tailscale" and "Tailcat" are trademarks of Tailscale Inc. catsflap is an
+independent project and is **not affiliated with or endorsed by Tailscale Inc.** —
+references to tailcat describe interoperability only.
