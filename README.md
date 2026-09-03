@@ -84,18 +84,27 @@ catsflap's transport is tailcat, which by default relays through **Tailscale's
 public DERP servers**. 
 
 Run your own DERP (Tailscale's [`derper`](https://pkg.go.dev/tailscale.com/cmd/derper)
-is open source) and point catsflap at it by baking your relay into the bastion's
-server key — in the entrypoint, generate the key with `--region` instead of
-`--fixed-region`:
+is open source) and point catsflap at it with one line in `.env`:
 
 ```sh
-tailcat genkey --key="$keyfile" --region=derp.example.com
+DERP_HOST=derp.example.com     # comma-separate for multiple relays
 ```
 
-The DERP host is then embedded in the tailcat address, so clients reach it with
-no extra config. (Alternatively, set `TAILCAT_DERPMAP_URL` to a custom DERP map
-for the bastion and clients.) None of this is needed for personal use — the
-default relays work out of the box.
+The bastion bakes that relay into its server key, so it's embedded in the tailcat
+address and clients reach it with no extra config. Set `DERP_HOST` **before the
+first `docker compose up`** — it's part of the persisted key. Changing it later
+means regenerating that key (which also changes the address); to do that *without*
+wiping your CA, drop just the key volume:
+
+```sh
+docker compose rm -sf bastion            # remove the bastion container
+docker volume rm <project>_tailcat-key   # <project> is the stack dir: pubkey or cert
+docker compose up -d                     # regenerates the key with the new DERP
+```
+
+(`docker compose down -v` works too, but also wipes the CA — you'd re-trust it on
+the host.) `TAILCAT_DERPMAP_URL` is an alternative to baking a host into the key.
+None of this is needed for personal use — the default relays work out of the box.
 
 ## License & attribution
 

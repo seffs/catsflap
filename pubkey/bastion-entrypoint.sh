@@ -55,10 +55,14 @@ PermitTTY yes
 EOF
 /usr/sbin/sshd -e
 
-# Persist the tailcat server key so the address stays stable across restarts,
-# with a fixed DERP region (the region is part of the address). `down -v` wipes it.
+# Persist the tailcat server key so the address stays stable across restarts.
+# DERP_HOST set -> bake your own relay into the key (see README "Bring your own
+# DERP"); empty -> pick the nearest public DERP region and fix it. Either way the
+# region is part of the address, so it must be pinned. `down -v` wipes the key.
 keyfile=/var/lib/tailcat/server.private.json
-[ -f "$keyfile" ] || /opt/tailcat/tailcat genkey --key="$keyfile" --fixed-region >/dev/null
+region="--fixed-region"; [ -n "${DERP_HOST:-}" ] && region="--region=$DERP_HOST"
+# shellcheck disable=SC2086
+[ -f "$keyfile" ] || /opt/tailcat/tailcat genkey --key="$keyfile" $region >/dev/null
 
 # tailcat serves the sshd port over the tunnel, gated by --allow.
 exec /opt/tailcat/tailcat serve --key="$keyfile" --allow="$ALLOW_KEY" "${SSHD_PORT:-22}"

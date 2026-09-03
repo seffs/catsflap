@@ -73,6 +73,7 @@ services:
       JWK_PROVISIONER: "${JWK_PROVISIONER:-admin}"
       PROVISIONER_PASSWORD: "${PROVISIONER_PASSWORD:-}" # optional: non-interactive JWK
       CERT_PRINCIPALS: "${CERT_PRINCIPALS:-}"
+      DERP_HOST: "${DERP_HOST:-}" # your own DERP relay; empty = nearest public DERP
     volumes:
       - tailcat-bin:/opt/tailcat:ro # the seeded tailcat binary
       - tailcat-key:/var/lib/tailcat # persisted server key (stable address)

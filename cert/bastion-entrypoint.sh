@@ -24,9 +24,12 @@ if [ -n "$CERT_PRINCIPALS" ]; then printf %s "$CERT_PRINCIPALS" >/etc/bastion/ce
 
 export SHELL=/usr/local/bin/bastion
 
-# Persist the tailcat server key so the address stays stable across restarts,
-# baking in a fixed DERP region (the region is part of the address, so without
-# --fixed-region it can drift even with the same key). `down -v` wipes it.
+# Persist the tailcat server key so the address stays stable across restarts.
+# DERP_HOST set -> bake your own relay into the key (see README "Bring your own
+# DERP"); empty -> pick the nearest public DERP region and fix it. The region is
+# part of the address, so it must be pinned either way. `down -v` wipes the key.
 keyfile=/var/lib/tailcat/server.private.json
-[ -f "$keyfile" ] || /opt/tailcat/tailcat genkey --key="$keyfile" --fixed-region >/dev/null
+region="--fixed-region"; [ -n "${DERP_HOST:-}" ] && region="--region=$DERP_HOST"
+# shellcheck disable=SC2086
+[ -f "$keyfile" ] || /opt/tailcat/tailcat genkey --key="$keyfile" $region >/dev/null
 exec /opt/tailcat/tailcat serve --key="$keyfile" --allow="$ALLOW_KEY" no-auth-ssh

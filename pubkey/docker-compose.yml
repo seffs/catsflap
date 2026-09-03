@@ -61,6 +61,7 @@ services:
       JWK_PROVISIONER: "${JWK_PROVISIONER:-admin}"
       TARGET_HOST: "${TARGET_HOST:-host.docker.internal}" # the target's real sshd
       SSHD_PORT: "${SSHD_PORT:-22}"
+      DERP_HOST: "${DERP_HOST:-}" # your own DERP relay; empty = nearest public DERP
     extra_hosts:
       - "host.docker.internal:host-gateway" # so TARGET_HOST can be the Docker host
     volumes:
