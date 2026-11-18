@@ -10,8 +10,15 @@ principal="$1"
 [ -n "$principal" ] || { echo "catsflap: no principal for this key" >&2; exit 1; }
 
 conf() { cat "/etc/catsflap/$1"; }
-export STEPPATH="$(mktemp -d)"
+STEPPATH="$(mktemp -d)"
+export STEPPATH
 id="$STEPPATH/id"
+# Remove the key, cert and bootstrap config when the session ends, however it
+# ends: signals exit through the EXIT trap. (They used to pile up in /tmp.)
+trap 'rm -rf "$STEPPATH"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 step ca bootstrap --ca-url "$(conf ca-url)" --fingerprint "$(conf fingerprint)" -f >/dev/null 2>&1
 step ssh certificate "$principal" "$id" \
@@ -19,8 +26,11 @@ step ssh certificate "$principal" "$id" \
 	--principal "$principal" --not-after 10m --no-password --insecure >/dev/null 2>&1
 
 host="$(conf target-host)"
+# Not exec: this shell has to outlive ssh to clean up. ssh's exit status is kept.
+set +e
 if [ -n "$SSH_ORIGINAL_COMMAND" ]; then
-	exec ssh -i "$id" -o StrictHostKeyChecking=accept-new "$principal@$host" "$SSH_ORIGINAL_COMMAND"
+	ssh -i "$id" -o StrictHostKeyChecking=accept-new "$principal@$host" "$SSH_ORIGINAL_COMMAND"
 else
-	exec ssh -tt -i "$id" -o StrictHostKeyChecking=accept-new "$principal@$host"
+	ssh -tt -i "$id" -o StrictHostKeyChecking=accept-new "$principal@$host"
 fi
+exit $?
